@@ -423,6 +423,43 @@ allele.data = seqtab.nochim.df %>%
 saveRDS(allele.data,file="allele_data.RDS")
 write.table(allele.data,file="allele_data.txt",quote=F,sep="\t",col.names=T,row.names=F)
 
+#allele data filtering
+
+# 1) find max read count value for Neg samples = NEG_threshold. if no Neg control is found, threshold is set to 0
+if (any(grepl("(?i)Neg", allele.data$sampleID))) {
+  neg_controls_index <- grepl("(?i)Neg", allele.data$sampleID)
+  neg_controls <- allele.data[neg_controls_index, ]
+  NEG_threshold <- max(neg_controls$reads)
+} else {
+  NEG_threshold <- 0
+}
+
+# 2) apply Neg filter to remove potential contaminants
+filtered_allele.data <- allele.data[allele.data$reads > NEG_threshold, ]
+filtered_allele.data <- filtered_allele.data[, !(names(filtered_allele.data) %in% c("norm.reads.locus", "n.alleles"))] #remove old allele freqs and counts
+
+# 3) recalculate allele freqs for each sample based on remaining read counts & allele counts based on remaining alleles
+filtered_allele.data <- filtered_allele.data %>%
+  group_by(sampleID,locus) %>%
+  mutate(norm.reads.locus = reads/sum(reads))%>%
+  mutate(n.alleles = n())
+
+# 4) find the 1% percentile of allele frequencies = FREQ_threshold
+FREQ_threshold<-as.vector(quantile(filtered_allele.data$norm.reads.locus, 0.01))
+
+# 5) apply freq filter to remove potential false positives
+filtered_allele.data <- filtered_allele.data[filtered_allele.data$norm.reads.locus > FREQ_threshold, ]
+filtered_allele.data <- filtered_allele.data[, !(names(filtered_allele.data) %in% c("norm.reads.locus", "n.alleles"))] #remove old allele freqs and counts
+
+# 6) recalculate allele freqs for each sample based on remaining read counts & allele counts based on remaining alleles
+filtered_allele.data <- filtered_allele.data %>%
+  group_by(sampleID,locus) %>%
+  mutate(norm.reads.locus = reads/sum(reads))%>%
+  mutate(n.alleles = n())
+
+# 7) export filtered allele data
+write.table(filtered_allele.data,file="allele_data_filtered.txt",quote=F,sep="\t",col.names=T,row.names=F)
+
 ## QC Postprocessing
 
 if (!is.null(args$sample_coverage) && file.exists(args$sample_coverage)) {
