@@ -382,7 +382,7 @@ process RESISTANCE_MARKERS {
         #!/usr/bin/env bash
         set -e
 
-        rdsfile2="\$(echo $asvfile | tr ' ' '\n' | grep allele_data.txt)"
+        rdsfile2="\$(echo $asvfile | tr ' ' '\n' | grep allele_data_filtered.txt)"
         echo "\${rdsfile2}"    
         mkdir -p Mapping
         bwa index ${refseq_fasta}
@@ -404,5 +404,4 @@ process RESISTANCE_MARKERS {
 
         """
 }
-
 
